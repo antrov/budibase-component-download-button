@@ -10,6 +10,8 @@
   export let disabled
 
   export let dataSource;
+  export let s3DatasourceId;
+  export let s3Bucket;
 
   export let bgColour
   export let bgHover
@@ -19,10 +21,23 @@
   export let brdHover
 
 
-  const { API, styleable } = getContext("sdk");
+  const { API, styleable, notificationStore } = getContext("sdk");
   const component = getContext("component")
 
   $: disabled = disabled ? "disabled" : ""
+
+  function downloadFromUrl(url, filename = 'query-result.json') {
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    a.target = '_blank'
+    a.rel = 'noopener noreferrer'
+    a.style.display = 'none'
+
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+  }
 
   async function onClick() {
     console.log("Button clicked", dataSource)
@@ -31,28 +46,49 @@
       return
     }
 
+    if (!s3DatasourceId || !s3Bucket) {
+      console.error("S3 datasource or bucket not configured")
+      notificationStore.actions.error("S3 configuration missing")
+      return
+    }
+
     try {
       const result = await API.executeQuery({ queryId: dataSource._id})
       console.log("Query result", result.data)
-      // Convert result to JSON and trigger download
-      const jsonData = JSON.stringify(result.data, null, 2)
+      if (!result || !result.data || !result.data.length) {
+        console.error("No data returned from query")
+        return
+      }
       
-      const blob = new Blob([jsonData], { type: 'application/json;charset=utf-8' })
-      const url = URL.createObjectURL(blob)
 
-      const a = document.createElement('a')
-      a.href = url
-      a.download = 'query-result.json'
-      a.target = '_self'  // to ważne dla CSP
-      a.rel = 'noopener noreferrer' // zabezpieczenie
-      a.style.display = 'none'
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
-      console.log("Download triggered")
+      // Convert result to JSON
+      const jsonData = JSON.stringify(result.data, null, 2);
+      const blob = new Blob([jsonData], { type: 'application/json' });
+      const file = new File([blob], 'query-result.json', { type: 'application/json' });
+
+      // Upload to S3
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const s3Key = `query-results/result-${timestamp}.json`;
+      
+      const uploadResult = await API.externalUpload({
+        datasourceId: s3DatasourceId,
+        bucket: s3Bucket,
+        key: s3Key,
+        data: file,
+      });
+
+      console.log("Upload result", uploadResult);
+      
+      if (uploadResult && uploadResult.url) {
+        // Use the returned URL for download
+        downloadFromUrl(uploadResult.url, `query-result-${timestamp}.json`);
+        notificationStore.actions.success("File downloaded successfully");
+      } else {
+        throw new Error("No download URL returned from S3 upload");
+      }
     } catch (error) {
-      console.error("Error executing query:", error)
+      console.error("Error executing query or uploading to S3:", error)
+      notificationStore.actions.error(`Error: ${error?.message || error}`)
     }
   }
 

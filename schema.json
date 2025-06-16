@@ -99,6 +99,18 @@
         "key": "dataSource"
       },
       {
+        "type": "dataSource/s3",
+        "label": "S3 datasource",
+        "key": "s3DatasourceId",
+        "info": "S3 datasource for uploading query results"
+      },
+      {
+        "type": "text",
+        "key": "s3Bucket",
+        "label": "S3 Bucket",
+        "defaultValue": "downloads"
+      },
+      {
         "type": "section",
         "section": true,
         "dependsOn": {
