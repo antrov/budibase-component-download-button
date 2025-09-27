@@ -32,8 +32,8 @@
         "defaultValue": "primary",
         "options": [
           {
-          "label": "Primary",
-          "value": "primary"
+            "label": "Primary",
+            "value": "primary"
           },
           {
             "label": "Secondary",
@@ -94,25 +94,60 @@
         "defaultValue": false
       },
       {
-        "type": "dataSource",
-        "label": "Data Source",
-        "key": "dataSource"
-      },
-      {
-        "type": "dataSource/s3",
-        "label": "S3 datasource",
-        "key": "s3DatasourceId",
-        "info": "S3 datasource for uploading query results"
-      },
-      {
-        "type": "text",
-        "key": "s3Bucket",
-        "label": "S3 Bucket",
-        "defaultValue": "downloads"
+        "type": "section",
+        "section": true,
+        "label": "S3 Configuration",
+        "name": "S3 Configuration",
+        "settings": [
+          {
+            "type": "dataSource",
+            "label": "Data Source",
+            "key": "dataSource"
+          },
+           {
+            "type": "text",
+            "key": "transformerJs",
+            "label": "Transformer JavaScript",
+            "defaultValue": ""
+          }
+        ]
       },
       {
         "type": "section",
         "section": true,
+        "label": "S3 Configuration",
+        "settings": [
+          {
+            "type": "dataSource/s3",
+            "label": "S3 datasource",
+            "key": "s3DatasourceId",
+            "info": "S3 datasource for uploading query results"
+          },
+          {
+            "type": "text",
+            "key": "s3Bucket",
+            "label": "S3 Bucket",
+            "defaultValue": "downloads"
+          },
+          {
+            "type": "text",
+            "key": "s3KeyPath",
+            "label": "S3 Key Path",
+            "defaultValue": "query-results/result.json",
+            "info": "S3 key path for the uploaded file"
+          },
+          {
+            "type": "text",
+            "key": "fileType",
+            "label": "File Type",
+            "defaultValue": "application/json"
+          }
+        ]
+      },
+      {
+        "type": "section",
+        "section": true,
+        "label": "Custom Colors",
         "dependsOn": {
           "setting": "variant",
           "value": "custom"

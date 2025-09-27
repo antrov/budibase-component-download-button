@@ -10,8 +10,12 @@
   export let disabled
 
   export let dataSource;
+  export let transformerJs;
+
   export let s3DatasourceId;
   export let s3Bucket;
+  export let s3KeyPath;
+  export let fileType;
 
   export let bgColour
   export let bgHover
@@ -19,6 +23,8 @@
   export let txtHover
   export let brdColour
   export let brdHover
+
+  let script = "console.log('Button clicked');"
 
 
   const { API, styleable, notificationStore } = getContext("sdk");
@@ -39,6 +45,21 @@
     document.body.removeChild(a)
   }
 
+  function applyTransformerJs(data, transformerJs) {
+    if (!transformerJs) return data;
+
+    try {
+      const fn = new Function('data', transformerJs);
+      const result = fn(data);
+      console.log("Transformer JS result:", result);
+      return result;
+    } catch (error) {
+      console.error("Error in transformer JS:", error);
+      notificationStore.actions.error(`Transformer error: ${error.message}`);
+      return data; // Return original data on error
+    }
+  }
+
   async function onClick() {
     console.log("Button clicked", dataSource)
     if (!dataSource || dataSource.type != "query" || !dataSource._id) {
@@ -52,36 +73,40 @@
       return
     }
 
+    if (!s3KeyPath) {
+      console.error("S3 key path not configured")
+      notificationStore.actions.error("S3 key path configuration missing")
+      return
+    }
+
     try {
       const result = await API.executeQuery({ queryId: dataSource._id})
       console.log("Query result", result.data)
       if (!result || !result.data || !result.data.length) {
         console.error("No data returned from query")
         return
-      }
+      }    
       
+      // Extract filename from s3Key (everything after the last '/')
+      const filename = s3KeyPath.split('/').pop() || 'download';
 
       // Convert result to JSON
-      const jsonData = JSON.stringify(result.data, null, 2);
-      const blob = new Blob([jsonData], { type: 'application/json' });
-      const file = new File([blob], 'query-result.json', { type: 'application/json' });
-
-      // Upload to S3
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      const s3Key = `query-results/result-${timestamp}.json`;
+      const data = applyTransformerJs(result.data, transformerJs);
+      const blob = new Blob([data], { type: fileType || 'application/json' });
+      const file = new File([blob], filename, { type: fileType || 'application/json' });
       
       const uploadResult = await API.externalUpload({
         datasourceId: s3DatasourceId,
         bucket: s3Bucket,
-        key: s3Key,
+        key: s3KeyPath,
         data: file,
       });
 
       console.log("Upload result", uploadResult);
       
-      if (uploadResult && uploadResult.url) {
-        // Use the returned URL for download
-        downloadFromUrl(uploadResult.url, `query-result-${timestamp}.json`);
+      if (uploadResult && uploadResult.publicUrl) {
+        // Use the returned URL for download with filename from s3Key
+        downloadFromUrl(uploadResult.publicUrl, filename);
         notificationStore.actions.success("File downloaded successfully");
       } else {
         throw new Error("No download URL returned from S3 upload");
